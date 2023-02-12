@@ -1,0 +1,4 @@
+ImagePos    Offset      Size  Name
+00000000  00000000  038911dc  main-section
+00000000   00000000  000054ec  u-boot-spl
+037f8000   037f8000  000991dc  u-boot-nodtb
