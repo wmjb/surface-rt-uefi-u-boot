@@ -34,9 +34,50 @@
 #define TPS65911_GPIO8		0x68
 
 #define TPS65911_DEVCTRL	0x3F
-void usb_vbus_disable(void);
+#define DEVCTRL_PWR_OFF_MASK	0x80
+#define DEVCTRL_DEV_OFF_MASK	0x01
+#define DEVCTRL_DEV_ON_MASK	0x04
 
 
+#ifndef CONFIG_CMD_SMC
+#ifdef CONFIG_CMD_POWEROFF
+int do_poweroff(struct cmd_tbl *cmdtp, int flag,
+		int argc, char *const argv[])
+{
+	struct udevice *dev;
+	uchar data_buffer[1];
+	int ret;
+
+	ret = i2c_get_chip_for_busnum(0, PMU_I2C_ADDRESS, 1, &dev);
+	if (ret) {
+		debug("%s: Cannot find PMIC I2C chip\n", __func__);
+		return 0;
+	}
+
+	ret = dm_i2c_read(dev, TPS65911_DEVCTRL, data_buffer, 1);
+	if (ret)
+		return ret;
+
+	data_buffer[0] |= DEVCTRL_PWR_OFF_MASK;
+
+	ret = dm_i2c_write(dev, TPS65911_DEVCTRL, data_buffer, 1);
+	if (ret)
+		return ret;
+
+	data_buffer[0] |= DEVCTRL_DEV_OFF_MASK;
+	data_buffer[0] &= ~DEVCTRL_DEV_ON_MASK;
+
+	ret = dm_i2c_write(dev, TPS65911_DEVCTRL, data_buffer, 1);
+	if (ret)
+		return ret;
+
+	// wait some time and then print error
+	mdelay(5000);
+	printf("Failed to power off!!!\n");
+	return 1;
+}
+#endif
+#endif
 /*
  * Routine: pinmux_init
  * Description: Do individual peripheral pinmux configs
@@ -58,21 +99,6 @@ void pinmux_init(void)
  * Do I2C/PMU writes to bring up SD card bus power
  *
  */
-void usb_vbus_disable(void)
-{
-
-
-        // Disable USB VBus
-      gpio_request(TEGRA_GPIO(DD, 6), "usb1_regulator_enable");
-      gpio_direction_output(TEGRA_GPIO(DD, 6), 0);
-	udelay(5);
-        // disable USB VBus to prevent shorting Surface RT VBus to Host PC
-        // USB module can enable it if the controller is in host mode.
-      gpio_set_value(TEGRA_GPIO(DD, 6), 0);
-
-
-}
-
 void board_sdmmc_voltage_init(void)
 {
 	struct udevice *dev;
@@ -81,16 +107,16 @@ void board_sdmmc_voltage_init(void)
 	int i;
 
 	// Enable Wifi power
-//	gpio_request(TEGRA_GPIO(D, 4), "MRVL-SD8797_Wifi_Enable");
-//	gpio_direction_output(TEGRA_GPIO(D, 4), 0);
-//	udelay(5);
-//	gpio_set_value(TEGRA_GPIO(D, 4), 1);
-///	printf("Enabled MRVL-SD8797 WiFi GPIO D4\n");
+	gpio_request(TEGRA_GPIO(D, 4), "MRVL-SD8797_Wifi_Enable");
+	gpio_direction_output(TEGRA_GPIO(D, 4), 0);
+	udelay(5);
+	gpio_set_value(TEGRA_GPIO(D, 4), 1);
+	printf("Enabled MRVL-SD8797 WiFi GPIO D4\n");
 
 	// Disable USB VBus
 //	gpio_request(TEGRA_GPIO(DD, 6), "usb1_regulator_enable");
 //	gpio_direction_output(TEGRA_GPIO(DD, 6), 0);
-//	udelay(5);
+///	udelay(5);
 	// disable USB VBus to prevent shorting Surface RT VBus to Host PC
 	// USB module can enable it if the controller is in host mode.
 //	gpio_set_value(TEGRA_GPIO(DD, 6), 0);
